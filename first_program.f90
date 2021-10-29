@@ -6,7 +6,7 @@ integer*4 :: N ! The natural number up to which prime numbers will be calculated
 integer*4 :: ii, jj ! indexing variables
 integer*4 :: allocate_status
 logical, allocatable :: is_prime(:)
-logical :: index_value, true = 1.gt.0, false = 0.gt.1
+logical :: true = 1.gt.0, false = 0.gt.1
 
 write(*,*) "Up to which number do you wish to get primes? Enter an integer N>=2."
 read(*,*) N
