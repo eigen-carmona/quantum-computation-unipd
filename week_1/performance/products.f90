@@ -1,7 +1,14 @@
 program matrix_products
 
 implicit none
-real*8 :: cumulative
+
+interface
+	function mat_mul_1(mat_a,mat_b)
+		real*8, allocatable:: mat_mul_1(:,:)
+		real*8, allocatable, intent(in):: mat_a(:,:), mat_b(:,:)
+	end function
+end interface
+
 real*8, allocatable :: A(:,:), B(:,:), C(:,:)
 integer*4 :: M, N, O, P, ii, jj, kk
 
@@ -28,24 +35,42 @@ do ii = 1,O
 	read(*,*) B(ii,:)
 end do
 
+C = mat_mul_1(A,B)
+
+do ii = 1,M
+	write(*,*) C(ii,1:P)
+end do
+
+end program matrix_products
+
 !------------------------------------------!
 ! matrix product, TODO: replace by function!
 !------------------------------------------!
+function mat_mul_1(mat_a,mat_b)
+implicit none
+real*8, allocatable, intent(in):: mat_a(:,:), mat_b(:,:)
+real*8, allocatable :: mat_mul_1(:,:)
+integer*4:: M,N,O,P,ii,jj,kk
+real*8:: cumulative
+integer*4:: shape_a(2), shape_b(2)
+
+shape_a = shape(mat_a)
+shape_b = shape(mat_b)
+M = shape_a(1)
+N = shape_a(2)
+O = shape_b(1)
+P = shape_b(2)
+
+allocate(mat_mul_1(1:M,1:P))
+
 do ii = 1,M
 	do jj = 1, P
 		cumulative = 0.d0
 		do kk = 1, N
-			cumulative = cumulative + A(ii,kk)*B(kk,jj)
+			cumulative = cumulative + mat_a(ii,kk)*mat_b(kk,jj)
 		end do
-		C(ii,jj) = cumulative
+		mat_mul_1(ii,jj) = cumulative
 	end do
 end do
 
-do ii = 1,M
-	write(*,*) C(ii,:)
-end do
-
-read(*,*) ii
-
-end program matrix_products
-
+end function
