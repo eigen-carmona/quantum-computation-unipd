@@ -56,11 +56,12 @@ do ii = 2, max_N
 	timing(ii,1) = (finish-start)/iterations
 
 	! Measuring performance of the second product definition
+	! Transposing and storing before entering the timing loop
 	D = transpose(B)
 	E = transpose(A)
 	call cpu_time(start)
 	do jj = 1, iterations
-		call mat_mul_1(D,E,C)
+		call mat_mul_2(D,E,C) ! This gives us C transpose
 	end do
 	call cpu_time(finish)
 	timing(ii,2) = (finish-start)/iterations
@@ -81,10 +82,12 @@ do ii = 2, max_N
 	deallocate(C)
 end do
 
+open(15,file = "performance.dat")
 ! Write the performance measurements
 do ii = 2, max_N
-	write(*,*) timing(ii,0:3)
+	write(15,*) timing(ii,0:3)
 end do
+close(15)
 
 end program matrix_products
 
@@ -142,6 +145,6 @@ subroutine mat_mul_2(mat_a,mat_b, mat_c)
 		end do
 	end do
 	
-	end subroutine
+end subroutine
 	
 
