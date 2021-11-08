@@ -20,7 +20,7 @@ is_prime = (/(true, ii =2, N)/)
 
 ii = 2
 
-! Erathostenes Sieve
+! Eratosthenes Sieve
 do while (ii .le. sqrt(real(N,4))) ! Casting N as real to calculate sqrt(N)
 	if (is_prime(ii)) then
 		jj = ii**2
