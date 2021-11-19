@@ -1,19 +1,24 @@
 program eigenproblem
 implicit none
+
 interface
     function random_hermitian(N)
-    integer*4 :: N
-    complex*8, dimension(1:N,1:N) :: random_hermitian
+    integer :: N
+    complex*16, dimension(1:N,1:N) :: random_hermitian
     end function
 end interface
 
-integer*4 :: N, ii
-complex*8, allocatable :: hermitian(:,:)
+integer :: N, ii, ok
+complex*16, allocatable :: hermitian(:,:), work(:)
+real*16,allocatable :: eigenvalues(:), rwork(:)
 
 write(*,*) "How many rows should the hermitian matrix have?"
 read(*,*) N
 
 allocate(hermitian(1:N,1:N))
+allocate(eigenvalues(1:N))
+allocate(work(1:2*N-1))
+allocate(rwork(1:3*N-2))
 
 hermitian = random_hermitian(N)
 
@@ -21,13 +26,15 @@ do ii = 1,N
     write(*,*) hermitian(ii,:)
 end do
 
+call zheev('N','U',N,hermitian,N,eigenvalues,work,2*N,work,ok)
+
 end program eigenproblem
 
 function random_hermitian(N)
 implicit none
-integer*4 :: N, ii, jj
-complex*8, dimension(1:N,1:N) :: random_hermitian
-real*8, dimension(1:N,1:N) :: A, B
+integer :: N, ii, jj
+complex*16, dimension(1:N,1:N) :: random_hermitian
+real*16, dimension(1:N,1:N) :: A, B
 
     call random_number(A)
     A = 2*A - 1
