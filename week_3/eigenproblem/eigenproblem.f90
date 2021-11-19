@@ -10,13 +10,14 @@ end interface
 
 integer :: N, ii, ok
 complex*16, allocatable :: hermitian(:,:), work(:)
-real*16,allocatable :: eigenvalues(:), rwork(:)
+real*16,allocatable :: eigenvalues(:), rwork(:), spacings(:)
 
 write(*,*) "How many rows should the hermitian matrix have?"
 read(*,*) N
 
 allocate(hermitian(1:N,1:N))
 allocate(eigenvalues(1:N))
+allocate(spacings(1:N-1))
 allocate(work(1:2*N-1))
 allocate(rwork(1:3*N-2))
 
@@ -27,6 +28,17 @@ do ii = 1,N
 end do
 
 call zheev('N','U',N,hermitian,N,eigenvalues,work,2*N,work,ok)
+
+do ii = 1, N-1
+    spacings(ii) = eigenvalues(ii+1)-eigenvalues(ii)
+end do
+
+spacings = spacings*(N-1)/sum(spacings)
+
+do ii = 1, N-1
+    write(*,*) spacings(ii)
+end do
+
 
 end program eigenproblem
 
