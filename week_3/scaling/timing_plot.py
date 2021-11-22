@@ -6,13 +6,15 @@ from scipy.optimize import curve_fit
 palette = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf']
 
 def main():
+    '''Starts the fortran matrix_product and enters the user specified values.
+    Generates plots for the performance measurements
+    and fits them to estimate algorithm complexity.'''
     min_N = input("Enter the minimum number of rows: ")
     max_N = input("Enter the maximum number of rows: ")
     # * Matrix product executable file is assumed to be present
     proc = subprocess.Popen("./matrix_product",stdin = subprocess.PIPE,stdout = subprocess.PIPE)
     proc.stdin.write(f'100,{min_N},{max_N}'.encode('UTF-8'))
     proc.stdin.close()
-    # TODO: adapt for unsuccessful timing scenario
 
     '''Importing data from performance.dat'''
     performance = np.genfromtxt('performance.dat')
@@ -20,9 +22,14 @@ def main():
     x = performance[:,0]
     for i in range(1,4):
         '''Leading order term fitting'''
+        # f(x) = ax^b+c: proposal function
         f_theo = lambda x, a, b, c: a*x**b + c
+        # y: measured data
         y = performance[:,i]
+        # default fitting with scipy, augmented max evaluations
         (a,b,c), _ = curve_fit(f_theo, x, y, maxfev = 2000)
+
+        '''Scatter of measurements and plotting of fitted function'''
         f = lambda x: f_theo(x,a,b,c)
         _, _ax = plt.subplots()
         _ax.scatter(x,y, color = palette[i])
