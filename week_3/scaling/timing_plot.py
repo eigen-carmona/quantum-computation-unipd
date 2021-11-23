@@ -13,9 +13,7 @@ def main():
     max_N = input("Enter the maximum number of rows: ")
     # * Matrix product executable file is assumed to be present
     proc = subprocess.Popen("./matrix_product",stdin = subprocess.PIPE,stdout = subprocess.PIPE)
-    #proc.stdin.write(f'100,{min_N},{max_N}'.encode('UTF-8'))
     out = proc.communicate(f'100,{min_N},{max_N}'.encode('UTF-8'))[0]
-    #proc.stdin.close()
 
     '''Importing data from performance.dat'''
     performance = np.genfromtxt('performance.dat')
@@ -28,7 +26,7 @@ def main():
         # y: measured data
         y = performance[:,i]
         # default fitting with scipy, augmented max evaluations
-        (a,b,c), _ = curve_fit(f_theo, x, y, maxfev = 2000)
+        (a,b,c), _ = curve_fit(f_theo, x, y)
 
         '''Scatter of measurements and plotting of fitted function'''
         f = lambda x: f_theo(x,a,b,c)
