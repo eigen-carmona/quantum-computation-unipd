@@ -15,9 +15,8 @@ real*8 :: average_spacing
 character (len = 15) :: filename
 
 write(*,*) "How many rows should the hermitian matrix have?"
-read(*,*) N
 write(*,*) "Type in the name of the file to store the normalized spacings. Type '' if no storing is desired."
-read(*,*) filename
+read(*,*) N, filename
 
 allocate(org_hermitian(1:N,1:N))
 allocate(eigenvalues(1:N))
@@ -35,6 +34,8 @@ eigenvectors = org_hermitian
 call zheev('N','U',N,eigenvectors,N,eigenvalues,work,-1,rwork,ok)
 ! the first element of work is the optimal lwork
 call zheev('N','U',N,eigenvectors,N,eigenvalues,work,min(5000,int(work(1))),rwork,ok)
+
+if (ok.ne.0) stop "Unsuccessful eigenvalue calculation"
 
 ! obtaing the normalized spacings
 average_spacing = (eigenvalues(N)-eigenvalues(1))/(N-1)
