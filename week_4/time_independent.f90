@@ -1,6 +1,6 @@
 program harmonic_oscillator
 implicit none
-integer :: NN, jj, ii
+integer :: NN, jj, ii, n_eigen
 real*8, parameter :: x_0 = 0, x_n = 1
 real*8 :: dx, x_i = x_0
 real*8, allocatable :: H_op(:,:)
@@ -19,6 +19,12 @@ real*8, allocatable :: D(:), E(:), W(:), Z(:,:), WORK(:)
 ! TODO: shouldn't this be the interval a,b instead?
 write(*,*) "How many points should be calculated?"
 read(*,*) NN
+
+!write(*,*) "How many energy values should be obtained?"
+!read(*,*) n_eigen
+!
+!! NN-1 should be at least n_eigen
+!if (NN-1.lt.n_eigen) stop "The grid size should be bigger than the desired number of energy levels."
 
 ! The number of points fixes the dx
 dx = (x_n-x_0)/NN
@@ -68,8 +74,16 @@ end do
 ! Using DSTEIN to compute eigenvalues
 ! To apply this method, it is enough to provide the diagonal vector
 ! as well as the subdiagonal one. Providing the full matrix is pointless.
-call dstein(NN-1,D,E,M,W,IBLOCK,ISPLIT,Z,LDZ,WORK,IWORK,IFAIL,INFO)
+!call dstein(NN-1,D,E,M,W,IBLOCK,ISPLIT,Z,LDZ,WORK,IWORK,IFAIL,INFO)
+! TODO: Aparently, dstebz has to be used instead
 
-write(*,*) INFO, W
+call dstebz('A','E',NN-1,0.d0,0.d0,0,0,0.0001d0,D,E,M,NN-1,W,IBLOCK,ISPLIT,WORK,IWORK,INFO)
+
+write(*,*) "status:",INFO
+open(15, file = 'energies.dat')
+do ii = 1, NN-1
+    write(15,*) W(ii)!(1:n_eigen)
+end do
+close(15)
 
 end program harmonic_oscillator
