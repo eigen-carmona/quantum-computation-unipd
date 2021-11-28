@@ -24,7 +24,7 @@ contains
         ! A key assumption in the boundary conditions is that \psi_{0} = \psi_{N+1} = 0,
         ! this immediately leads to a convenient tridiagonal matrix
 
-        NN = int((x_n-x_0)/dx)-1 ! we start at x_0 + dx and end at x_N - dx
+        NN = int((x_n-x_0)/dx) ! we start at x_0 + dx and end at x_N - dx
 
         ! Since we know eigenvectors will also be computed,
         ! Optimal WORK and IWORK dimensions can be provided a priori
