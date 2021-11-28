@@ -13,25 +13,24 @@ contains
     ! V - Array with the potential energy evaluated from x_0+dx to x_n-dx
     implicit none
     real*8, intent(in) :: x_0, x_n, dx, V(:)
-    real*8 :: x_i
-    integer :: M, LDZ, LWORK, LIWORK,INFO, NN, ii
+    integer :: M, LDZ, LWORK, LIWORK,INFO, NN
     integer, allocatable :: ISUPPZ(:), ISPLIT(:), IWORK(:), IFAIL(:)
     real*8, allocatable :: D(:), E(:), WORK(:)
     real*8, intent(out), allocatable :: W(:), Z(:,:)
     logical :: TRYRAC = .True.
-    
+
         ! We'll tackle the problem by means of finite difference, with a second derivative:
         ! \frac{d^2 f_{j}}{dx^2} = \frac{f_{j+1} - 2f_{j} + f_{j-1}}{h^2}.
         ! A key assumption in the boundary conditions is that \psi_{0} = \psi_{N+1} = 0,
         ! this immediately leads to a convenient tridiagonal matrix
-    
+
         NN = int((x_n-x_0)/dx)-1 ! we start at x_0 + dx and end at x_N - dx
-    
+
         ! Since we know eigenvectors will also be computed,
         ! Optimal WORK and IWORK dimensions can be provided a priori
         LWORK = 18*NN
         LIWORK = 10*NN
-        
+
         ! DSTEMR-specific allocations
         allocate(D(1:NN))
         allocate(E(1:NN-1))
@@ -43,23 +42,13 @@ contains
         allocate(WORK(1:LWORK))
         allocate(IWORK(1:LIWORK))
         allocate(IFAIL(1:M))
-        
+
         ! Build the hamiltonian matrix
-        x_i = x_0
-        do ii = 1, NN
-            ! Increase the value of x_i
-            x_i = x_i + dx
-            ! Now evaluate the diagonal element of the matrix
-            D(ii) = 2/dx**2/2 + V(ii)
-        
-            ! Fill the subdiagonal term of the matrix
-            if (ii.lt.NN) then
-                E(ii) = -1/dx**2/2
-            end if
-        
-        end do
-        
-        
+        ! Diagonal elements
+        D = 2/dx**2/2 + V
+        ! Subdiagonal elements
+        E = E  - 1/dx**2/2        
+
         ! USE LAPACK DSTEMR
         call dstemr(&
             'V',&! We wish for both eigenvalues and eigenvectors
