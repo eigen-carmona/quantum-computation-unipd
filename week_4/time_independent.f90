@@ -1,14 +1,14 @@
 program harmonic_oscillator
 implicit none
-integer :: NN, jj, ii, n_eigen
-real*8, parameter :: x_0 = 0, x_n = 1
-real*8 :: dx, x_i = x_0
-real*8, allocatable :: H_op(:,:)
+integer :: NN, ii
+real*8, parameter :: x_0 = -10, x_n = 10
+real*8 :: dx=0.0005, x_i = x_0
 
-! DSTEIN-Specific variables
-integer :: M, LDZ, INFO
-integer, allocatable :: IBLOCK(:), ISPLIT(:), IWORK(:), IFAIL(:)
+! DSTEMR-Specific variables
+integer :: M, LDZ, LWORK, LIWORK,INFO
+integer, allocatable :: ISUPPZ(:), ISPLIT(:), IWORK(:), IFAIL(:)
 real*8, allocatable :: D(:), E(:), W(:), Z(:,:), WORK(:)
+logical :: TRYRAC = .True.
 
 
 ! We'll tackle the problem by means of finite difference, with a second derivative:
@@ -16,74 +16,76 @@ real*8, allocatable :: D(:), E(:), W(:), Z(:,:), WORK(:)
 ! A key assumption in the boundary conditions is that \psi_{0} = \psi_{N+1} = 0,
 ! this immediately leads to a convenient tridiagonal matrix
 
-! TODO: shouldn't this be the interval a,b instead?
-write(*,*) "How many points should be calculated?"
-read(*,*) NN
+write(*,*) "How many energy values should be calculated?"
+read(*,*) M
 
-!write(*,*) "How many energy values should be obtained?"
-!read(*,*) n_eigen
-!
-!! NN-1 should be at least n_eigen
-!if (NN-1.lt.n_eigen) stop "The grid size should be bigger than the desired number of energy levels."
+NN = int((x_n-x_0)/dx)-1 ! we start at x_0 + dx and end at x_N - dx
 
-! The number of points fixes the dx
-dx = (x_n-x_0)/NN
+! Since we know eigenvectors will also be computed,
+! Optimal WORK and IWORK dimensions can be provided a priori
+LWORK = 18*NN
+LIWORK = 10*NN
 
-! TODO: validation for memory in allocation
-allocate(H_op(1:NN-1,1:NN-1))
-
-! DSTEIN-specific allocations
-allocate(D(1:NN-1))
-allocate(E(1:NN-2))
-M = NN - 1
-allocate(W(1:NN-1))
-allocate(IBLOCK(1:NN-1))
-allocate(ISPLIT(1:NN-1))
-LDZ = NN - 1
+! DSTEMR-specific allocations
+allocate(D(1:NN))
+allocate(E(1:NN-1))
+allocate(W(1:NN))
+allocate(ISUPPZ(1:2*NN))
+allocate(ISPLIT(1:NN))
+LDZ = NN
 allocate(Z(1:LDZ,1:M))
-allocate(WORK(1:5*(NN-1)))
-allocate(IWORK(1:NN-1))
+allocate(WORK(1:LWORK))
+allocate(IWORK(1:LIWORK))
 allocate(IFAIL(1:M))
 
 ! Build the hamiltonian matrix
-do ii = 1, NN-1
+do ii = 1, NN
     ! Increase the value of x_i
     x_i = x_i + dx
     ! Now evaluate the diagonal element of the matrix
-    ! TODO: generalize potential
-    H_op(ii,ii) = 2/dx**2 + x_i**2/2!+ V(x_i)
-    D(ii) = H_op(ii,ii)
+    D(ii) = 2/dx**2/2 + x_i**2/2
 
-    ! Avoid trying to fill an NN,NN-1 entry in the matrix
-    if (ii.lt.NN-1) then
-        H_op(ii+1,ii) = -1/dx**2
-        E(ii) = -1/dx**2
+    ! Fill the subdiagonal term of the matrix
+    if (ii.lt.NN) then
+        E(ii) = -1/dx**2/2
     end if
 
-    ! Avoid trying to fill an 0,1 entry in the matrix
-    if (ii.gt.1) then
-        H_op(ii-1,ii) = -1/dx**2
-    end if
 end do
 
-! TODO: debug mode
-!do ii = 1, NN-1
-!    write(*,*) H_op(ii,:)
-!end do
 
-! Using DSTEIN to compute eigenvalues
-! To apply this method, it is enough to provide the diagonal vector
-! as well as the subdiagonal one. Providing the full matrix is pointless.
-!call dstein(NN-1,D,E,M,W,IBLOCK,ISPLIT,Z,LDZ,WORK,IWORK,IFAIL,INFO)
-! TODO: Aparently, dstebz has to be used instead
+! USE LAPACK DSTEMR
+call dstemr(&
+    'V',&! We wish for both eigenvalues and eigenvectors
+    'I',&! We aim to obtain the first M eigenvalues
+    NN,&! This is the order of the matrix
+    D,&! The diagonal elements of the matrix. Will be overwritten
+    E,&! Sub-diagonal elements of the matrix. Also to be overwritten
+    0.d0,&! Irrelevant, since we're obtaining eigenvalues by index
+    0.d0,&! Idem
+    1,&! We want to start at the very first eigenvalue...
+    M,&! and go up to the Mth (M<=NN) eigenvalue
+    M,&! The total number of eigenvalues to be found
+    W,&! The first M elements will be the first M eigenvalues
+    Z,&! Its columns will store the first M eigenvectors
+    LDZ,&! The leading dimension of Z. In general, NN
+    M,&! M columns in Z are required to store the eigenvectors
+    ISUPPZ,&! Support of the eigenvectors
+    TRYRAC,&! Validate if the matrix defines its e-values w/high relative accuracy
+    WORK,&! Work vector for dstmr
+    LWORK,&! Work array dimension
+    IWORK,&
+    LIWORK,&! Dimension of IWORK array
+    INFO)! Status info
 
-call dstebz('A','E',NN-1,0.d0,0.d0,0,0,0.0001d0,D,E,M,NN-1,W,IBLOCK,ISPLIT,WORK,IWORK,INFO)
 
-write(*,*) "status:",INFO
+write(*,*) "status:",INFO, "(0 means successful)"
 open(15, file = 'energies.dat')
-do ii = 1, NN-1
-    write(15,*) W(ii)!(1:n_eigen)
+open(16, file = 'states.dat')
+do ii = 1, M
+    write(15,*) W(ii)
+    write(16,*) Z(:,ii)! Storing as row vectors
 end do
+close(16)
 close(15)
 
 end program harmonic_oscillator
