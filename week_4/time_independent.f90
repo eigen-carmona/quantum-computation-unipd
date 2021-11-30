@@ -55,7 +55,6 @@ end if
 
 write(energy_file,'(A,A,A,I0,A)') "energies_",election,"_",NN,".dat"
 write(states_file,'(A,A,A,I0,A)') "psi_states_",election,"_",NN,".dat"
-write(*,*) energy_file
 open(15, file = energy_file)
 open(16, file = states_file)
 do ii = 1, n_eigen
@@ -86,7 +85,7 @@ real*8      :: potential_V(1:N_grid)
             if (x_pos(ii).lt.0) then
                 potential_V(ii) = 0
             else
-                potential_V(ii) = 5
+                potential_V(ii) = 1
             end if
         end do
     case ('qb','qw')
@@ -95,7 +94,7 @@ real*8      :: potential_V(1:N_grid)
             if ((x_pos(ii).lt.-5).or.(x_pos(ii).gt.5)) then
                 potential_V(ii) = 0
             else
-                potential_V(ii) = 5
+                potential_V(ii) = 1
             end if
         end do
         ! Potential well
