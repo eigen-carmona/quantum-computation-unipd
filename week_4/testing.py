@@ -7,7 +7,7 @@ import time
 
 def main():
     '''Executing fortran program'''
-    sizes = [100,250,500,1000,2500,5000,10000]
+    sizes = [150,250,500,1000,2500,5000,10000]
     ho = lambda x: x**2/2
     heaviside = lambda x: 1 if x > 0 else 0
     qs = lambda x: 5*np.array([heaviside(i) for i in x])
@@ -20,9 +20,9 @@ def main():
     x_0 = -10
     x_n = 10
     for pot,potential in potentials.items():
-        ax, fig = plt.subplots()
-        _ax, _fig = plt.subplots()
-        __ax,__fig = plt.subplots()
+        fig, ax = plt.subplots()
+        _fig, _ax = plt.subplots()
+        __fig, __ax = plt.subplots()
         for size in sizes:
             proc = subprocess.Popen("./time_independent",stdin = subprocess.PIPE,stdout = subprocess.PIPE)
             out = proc.communicate(f'"{pot}",{size},100'.encode('UTF-8'))[0]
@@ -38,7 +38,7 @@ def main():
             __ax.set_title(f'{pot} potential, energy predictions')
             __ax.set_xlabel('state n')
             __ax.set_ylabel('Energy')
-            __ax.lengend([f'N = {size}' for size in sizes]+['Analytic expression'])
+            __ax.legend([f'N = {size}' for size in sizes]+['Analytic expression'])
             __fig.savefig('Energy fit ho.jpg')
         # plot the third state in different grid sizes
         _ax.plot(x,potential(x))
@@ -54,7 +54,7 @@ def main():
         ax.set_xlabel('x')
         ax.set_ylabel(r'|\psi|^2')
         ax.legend([f'state {i}' for i in range(5)]+['V(x)'])
-        fix.savefig(f'wavefunction_{pot}.jpg')
+        fig.savefig(f'wavefunction_{pot}.jpg')
 
 if __name__ == '__main__':
     main()
