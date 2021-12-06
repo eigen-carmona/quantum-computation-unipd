@@ -8,8 +8,8 @@ program phasing_oscillator
     real*8, parameter :: L = 10, pi = acos(-1.0)
     real*8 :: dx, dp, dt = 0.05, norm_sq, T = 5
     complex*16, allocatable, dimension(:,:) :: Psi
-    real*8, allocatable, dimension(:,:) :: psi_states, V_t
-    real*8, allocatable, dimension(:) :: x_grid, p_grid, energies
+    real*8, allocatable, dimension(:,:) :: psi_states, int_V_t
+    real*8, allocatable, dimension(:) :: x_grid, p_grid, energies, V_0
     
 
     write(*,*) "Enter the target state to evolve. For how many timesteps?"
@@ -37,14 +37,17 @@ program phasing_oscillator
     p_grid(1:int(N_grid/2)) = (/(ii*dp, ii = 1,int(N_grid/2))/)
     p_grid(int(N_grid/2)+1:N_grid) = (/(-int(N_grid/2)*dp+ii*dp, ii = 0,int(N_grid/2))/)
 
-    ! Prepare time-evolving potential
-    allocate(V_t(1:N_grid,0:timesteps))
-    do ii = 0, timesteps
-        V_t(:,ii) = (x_grid-ii*dt/T)**2/2
+    ! Prepare t=0 potential
+    allocate(V_0(1:N_grid))
+    V_0 = x_grid**2/2
+    ! Prepare time-evolving integrated potential
+    allocate(int_V_t(1:N_grid,1:timesteps))
+    do ii = 1, timesteps
+        int_V_t(:,ii) = ((x_grid*T-(ii-1)*dt)**3-(x_grid*T-ii*dt)**3)/(6*T**2)!(T*x_grid-(ii-1)*dt/T)**2/2
     end do
 
     ! Calling single particle routine for diagonal potentials and vanishing boundaries
-    call finite_diff_1D(-L,L,NN,n_eigen,energies,psi_states,V_t(:,0),INFO)
+    call finite_diff_1D(-L,L,NN,n_eigen,energies,psi_states,V_0,INFO)
     ! Validate there are no routine errors
     if (INFO.ne.0) then
         write(*,'(A,I4)') "Unsuccessful calculation. Status = ",INFO
@@ -55,11 +58,10 @@ program phasing_oscillator
     ! Use the eigenstate of interest
     norm_sq = sum(abs(psi_states(:,n_eigen))**2)*dx
     Psi(:,0) = psi_states(:,n_eigen)/sqrt(norm_sq)
-    call split_op_1D(Psi,V_t,dt,N_grid,p_grid,timesteps,dx)
+    call split_op_1D(Psi,int_V_t,dt,N_grid,p_grid,timesteps,dx)
     ! evolve the state
     open(12, file = 'states_ev.dat')
-    write(12,'(*(F0.8,SP,F0.8,"j",","))') Psi(:,0)
-    do ii = 1, timesteps
+    do ii = 0, timesteps
         write(12,'(*(F0.8,SP,F0.8,"j",","))') Psi(:,ii)
     end do
     close(12)
