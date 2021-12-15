@@ -12,6 +12,7 @@ end interface
 double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z, sigma_t, mat
 integer ii, jj, NN, allocate_status
 double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int
+real*8 :: lambda
 
 sigma_t = dcmplx(reshape((/1,0,&
                            0,1/),&
@@ -29,8 +30,8 @@ sigma_z = dcmplx(reshape((/1,0,&
                            0,-1/),&
                     (/2,2/)),0)
 
-write(*,*) "How many spins compose the system?"
-read(*,*) NN
+write(*,*) "How many spins compose the system? Whats the field intensity?"
+read(*,*) NN, lambda
 
 ! BRUTE FORCE TENSOR PRODUCT
 ! Can be simplified noting that most matrices in the tensor product are the identity
@@ -63,6 +64,8 @@ do ii = 1, NN
     hamiltonian = hamiltonian + mean_int
 end do
 
+hamiltonian = lambda*hamiltonian
+
 ! Nearest neighbours interaction
 do ii = 1, NN-1
     if (ii.eq.1) then
@@ -85,9 +88,9 @@ do ii = 1, NN-1
     hamiltonian = hamiltonian + neigh_int
 end do
 
-do ii = 1, 2**NN
-    write(*,'(*(F0.2,SP,F0.2,"i",", "))') hamiltonian(ii,:)
-end do
+!do ii = 1, 2**NN
+!    write(*,'(*(F0.2,SP,F0.2,"i",", "))') hamiltonian(ii,:)
+!end do
 
 end program ising_model
 
