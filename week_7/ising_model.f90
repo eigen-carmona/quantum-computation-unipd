@@ -9,14 +9,19 @@ interface
     end function
 end interface
 
-double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z, sigma_t, mat
+interface
+    function identity(NN)
+        implicit none
+        integer :: NN
+        double complex, dimension(1:NN,1:NN) :: identity
+    end function
+end interface
+
+double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z, mat
 integer ii, jj, NN, allocate_status
 double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int
 real*8 :: lambda
 
-sigma_t = dcmplx(reshape((/1,0,&
-                           0,1/),&
-                    (/2,2/)),0)
 
 sigma_x = dcmplx(reshape((/0,1,&
                            1,0/),&
@@ -30,6 +35,7 @@ sigma_z = dcmplx(reshape((/1,0,&
                            0,-1/),&
                     (/2,2/)),0)
 
+
 write(*,*) "How many spins compose the system? Whats the field intensity?"
 read(*,*) NN, lambda
 
@@ -42,19 +48,20 @@ if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian**
 allocate(neigh_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 
+
 ! Transverse field interaction
 do ii = 1, NN
     if (ii.eq.1) then
         mean_int(1:2,1:2) = sigma_z
     else
-        mean_int(1:2,1:2) = sigma_t
+        mean_int(1:2,1:2) = identity(2)
     end if
 
     do jj = 2, NN
         if (jj.eq.ii) then
             mat = sigma_z
         else
-            mat = sigma_t
+            mat = identity(2)
         end if
         mean_int(1:2**jj,1:2**jj) = tens_prod(&
             mean_int(1:2**(jj-1),1:2**(jj-1)),&
@@ -62,6 +69,47 @@ do ii = 1, NN
             2**(jj-1),2**(jj-1),2,2)
     end do
     hamiltonian = hamiltonian + mean_int
+
+end do
+
+! Setting everything for ii = 1
+mean_int = tens_prod(&
+    sigma_z,&
+    identity(2**(NN-1)),&
+    2,2,2**(NN-1),2**(NN-1))
+
+neigh_int = neigh_int + mean_int
+
+! Setting for states inbetween
+do ii = 2, NN-1
+    ! Initialize whole matrix as identity
+    mean_int = identity(2**NN)
+    mean_int(1:2**ii,1:2**ii) = tens_prod(&
+            identity(2**(ii-1)),&
+            sigma_z,&
+            2**(ii-1),2**(ii-1),2,2)
+    mean_int = tens_prod(&
+    mean_int(1:2**ii,1:2**ii),&
+    identity(2**(NN-ii)),&
+    2**ii,2**ii,2**(NN-ii),2**(NN-ii))
+
+    neigh_int = neigh_int + mean_int
+
+end do
+
+! Setting everything for ii = NN
+mean_int = tens_prod(&
+    identity(2**(NN-1)),&
+    sigma_z,&
+    2**(NN-1),2**(NN-1),2,2)
+
+neigh_int = neigh_int + mean_int
+
+
+do ii = 1, 2**NN
+    do jj = 1, 2**NN
+        if (neigh_int(ii,jj).ne.hamiltonian(ii,jj)) stop "They different :("
+    end do
 end do
 
 hamiltonian = lambda*hamiltonian
@@ -71,14 +119,14 @@ do ii = 1, NN-1
     if (ii.eq.1) then
         neigh_int(1:2,1:2) = sigma_x
     else
-        neigh_int(1:2,1:2) = sigma_t
+        neigh_int(1:2,1:2) = identity(2)
     end if
-    
+
     do jj = 2, NN
         if ((jj.eq.ii+1).or.(jj.eq.ii)) then
             mat = sigma_x
         else
-            mat = sigma_t
+            mat = identity(2)
         end if
         neigh_int(1:2**jj,1:2**jj) = tens_prod(&
             neigh_int(1:2**(jj-1),1:2**(jj-1)),&
@@ -109,3 +157,14 @@ integer :: ii, jj, MM, NN, OO, PP
     end do
 end function
 
+function identity(NN)
+implicit none
+integer :: NN, ii
+double complex, dimension(1:NN,1:NN) :: identity
+
+identity = 0*identity
+do ii = 1, NN
+    identity(ii,ii) = dcmplx(1,0)
+end do
+
+end function
