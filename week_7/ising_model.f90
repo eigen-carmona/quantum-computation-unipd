@@ -18,8 +18,9 @@ interface
 end interface
 
 double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z, mat
+double complex, dimension(1:2**2,1:2**2) :: sigma_int
 integer ii, jj, NN, allocate_status
-double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int
+double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int,hamiltonian_1
 real*8 :: lambda
 
 
@@ -35,9 +36,12 @@ sigma_z = dcmplx(reshape((/1,0,&
                            0,-1/),&
                     (/2,2/)),0)
 
+sigma_int = tens_prod(sigma_x,sigma_x,2,2,2,2)
 
 write(*,*) "How many spins compose the system? Whats the field intensity?"
 read(*,*) NN, lambda
+
+if (NN.lt.3) stop "The system must have at least 3 spins"
 
 ! BRUTE FORCE TENSOR PRODUCT
 ! Can be simplified noting that most matrices in the tensor product are the identity
@@ -47,6 +51,9 @@ allocate(mean_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 allocate(neigh_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+allocate(hamiltonian_1(1:2**NN,1:2**NN),stat = allocate_status)
+if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+
 
 
 ! Transverse field interaction
@@ -78,7 +85,7 @@ mean_int = tens_prod(&
     identity(2**(NN-1)),&
     2,2,2**(NN-1),2**(NN-1))
 
-neigh_int = neigh_int + mean_int
+hamiltonian_1 = hamiltonian_1 + mean_int
 
 ! Setting for states inbetween
 do ii = 2, NN-1
@@ -93,7 +100,7 @@ do ii = 2, NN-1
     identity(2**(NN-ii)),&
     2**ii,2**ii,2**(NN-ii),2**(NN-ii))
 
-    neigh_int = neigh_int + mean_int
+    hamiltonian_1 = hamiltonian_1 + mean_int
 
 end do
 
@@ -103,16 +110,10 @@ mean_int = tens_prod(&
     sigma_z,&
     2**(NN-1),2**(NN-1),2,2)
 
-neigh_int = neigh_int + mean_int
-
-
-do ii = 1, 2**NN
-    do jj = 1, 2**NN
-        if (neigh_int(ii,jj).ne.hamiltonian(ii,jj)) stop "They different :("
-    end do
-end do
+hamiltonian_1 = hamiltonian_1 + mean_int
 
 hamiltonian = lambda*hamiltonian
+hamiltonian_1 = lambda*hamiltonian_1
 
 ! Nearest neighbours interaction
 do ii = 1, NN-1
@@ -136,8 +137,49 @@ do ii = 1, NN-1
     hamiltonian = hamiltonian + neigh_int
 end do
 
+! Nearest neighbours interaction
+! Prepare interaction of the first two
+neigh_int = tens_prod(&
+                sigma_int,&
+                identity(2**(NN-2)),&
+                2**2,2**2,2**(NN-2),2**(NN-2))
+
+hamiltonian_1 = hamiltonian_1 + neigh_int
+
+do ii = 2, NN-2
+    neigh_int(1:2**(ii+1),1:2**(ii+1)) = tens_prod(&
+                    identity(2**(ii-1)),&
+                    sigma_int,&
+                    2**(ii-1),2**(ii-1),2**2,2**2)
+    neigh_int = tens_prod(&
+                    neigh_int(1:2**(ii+1),1:2**(ii+1)),&
+                    identity(2**(NN-ii-1)),&
+                    2**(ii+1),2**(ii+1),2**(NN-ii-1),2**(NN-ii-1))
+    hamiltonian_1 = hamiltonian_1 + neigh_int
+end do
+
+! Prepare interaction of the last two
+neigh_int = tens_prod(&
+                identity(2**(NN-2)),&
+                sigma_int,&
+                2**(NN-2),2**(NN-2),2**2,2**2)
+
+hamiltonian_1 = hamiltonian_1 + neigh_int
+
 !do ii = 1, 2**NN
-!    write(*,'(*(F0.2,SP,F0.2,"i",", "))') hamiltonian(ii,:)
+!    do jj = 1, 2**NN
+!        if ((real(real(hamiltonian_1(ii,jj))).ne.real(real(hamiltonian(ii,jj))))&
+!        .or.((real(aimag(hamiltonian_1(ii,jj))).ne.real(aimag(hamiltonian(ii,jj))))))&
+!        stop "They're different :("
+!
+!    end do
+!end do
+!
+!
+!do ii = 1, 2**NN
+!    write(*,'(*(F0.0,SP,F0.0,"i",", "))') hamiltonian(ii,:)
+!    write(*,'(*(F0.0,SP,F0.0,"i",", "))') hamiltonian_1(ii,:)
+!    write(*,*) ""
 !end do
 
 end program ising_model
