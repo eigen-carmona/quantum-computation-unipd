@@ -117,7 +117,7 @@ implicit none
 double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z
 double complex, dimension(1:2**2,1:2**2) :: sigma_int
 integer ii, NN, allocate_status
-double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int
+double complex, dimension(:,:), allocatable :: hamiltonian,holder_int
 real*8 :: lambda
 
 sigma_x = dcmplx(reshape((/0,1,&
@@ -143,69 +143,66 @@ if (NN.lt.3) stop "The system must have at least 3 spins"
 ! Can be simplified noting that most matrices in the tensor product are the identity
 allocate(hamiltonian(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
-allocate(mean_int(1:2**NN,1:2**NN),stat = allocate_status)
+allocate(holder_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
-allocate(neigh_int(1:2**NN,1:2**NN),stat = allocate_status)
-if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
-
 
 ! Transverse field interaction
 ! Setting everything for ii = 1
-mean_int = tens_id_2(&
+holder_int = tens_id_2(&
     sigma_z,&
     2,2,2**(NN-1))
 
-hamiltonian = mean_int
+hamiltonian = holder_int
 
 
 ! Setting for states inbetween
 do ii = 2, NN-1
-    mean_int(1:2**ii,1:2**ii) = tens_prod_2(&
+    holder_int(1:2**ii,1:2**ii) = tens_prod_2(&
             identity(2**(ii-1)),&
             sigma_z,&
             2**(ii-1),2**(ii-1),2,2)
-    mean_int = tens_id_2(&
-    mean_int(1:2**ii,1:2**ii),&
+    holder_int = tens_id_2(&
+    holder_int(1:2**ii,1:2**ii),&
     2**ii,2**ii,2**(NN-ii))
 
-    hamiltonian = hamiltonian + mean_int
+    hamiltonian = hamiltonian + holder_int
 
 end do
 
 ! Setting everything for ii = NN
-mean_int = tens_prod_2(&
+holder_int = tens_prod_2(&
     identity(2**(NN-1)),&
     sigma_z,&
     2**(NN-1),2**(NN-1),2,2)
 
-hamiltonian = hamiltonian + mean_int
+hamiltonian = hamiltonian + holder_int
 
 ! Nearest neighbours interaction
 ! Prepare interaction of the first two
-neigh_int = tens_id_2(&
+holder_int = tens_id_2(&
                 sigma_int,&
                 2**2,2**2,2**(NN-2))
 
-hamiltonian = hamiltonian + neigh_int
+hamiltonian = hamiltonian + holder_int
 
 do ii = 2, NN-2
-    neigh_int(1:2**(ii+1),1:2**(ii+1)) = tens_prod_2(&
+    holder_int(1:2**(ii+1),1:2**(ii+1)) = tens_prod_2(&
                     identity(2**(ii-1)),&
                     sigma_int,&
                     2**(ii-1),2**(ii-1),2**2,2**2)
-    neigh_int = tens_id_2(&
-                    neigh_int(1:2**(ii+1),1:2**(ii+1)),&
+    holder_int = tens_id_2(&
+                    holder_int(1:2**(ii+1),1:2**(ii+1)),&
                     2**(ii+1),2**(ii+1),2**(NN-ii-1))
-    hamiltonian = hamiltonian + neigh_int
+    hamiltonian = hamiltonian + holder_int
 end do
 
 ! Prepare interaction of the last two
-neigh_int = tens_prod_2(&
+holder_int = tens_prod_2(&
                 identity(2**(NN-2)),&
                 sigma_int,&
                 2**(NN-2),2**(NN-2),2**2,2**2)
 
-hamiltonian = hamiltonian + neigh_int
+hamiltonian = hamiltonian + holder_int
 
 
 end program ising_model
