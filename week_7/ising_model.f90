@@ -136,11 +136,14 @@ allocate(mean_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 allocate(neigh_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+allocate(hamiltonian_1(1:2**NN,1:2**NN),stat = allocate_status)
+if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 
 
-!call cpu_time(start)
-!!
-!do jj = 1, 100
+
+call cpu_time(start)
+!
+do jj = 1, 100
 ! Transverse field interaction
 ! Setting everything for ii = 1
 mean_int = tens_prod(&
@@ -204,13 +207,13 @@ neigh_int = tens_prod(&
 
 hamiltonian = hamiltonian + neigh_int
 
-! **** ALTERNATIVE ****
- 
-allocate(hamiltonian_1(1:2**NN,1:2**NN),stat = allocate_status)
-if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+end do
+call cpu_time(end)
+write(*,*) "Timing first method:", end-start
 
-!call cpu_time(start)
-!do jj = 1, 100
+! **** ALTERNATIVE ****
+call cpu_time(start)
+do jj = 1, 100
 ! Transverse field interaction
 ! Setting everything for ii = 1
 mean_int = tens_id(&
@@ -268,6 +271,10 @@ neigh_int = tens_prod(&
                 2**(NN-2),2**(NN-2),2**2,2**2)
 
 hamiltonian_1 = hamiltonian_1 + neigh_int
+end do
+call cpu_time(end)
+write(*,*) "Timing second method:", end-start
+
 
 call compare_mat(hamiltonian,hamiltonian_1)
 
