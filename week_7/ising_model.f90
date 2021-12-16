@@ -1,28 +1,75 @@
-program ising_model
-implicit none
-interface
-    function tens_prod(A,B,MM,NN,OO,PP)
-        implicit none
-        integer :: MM,NN,OO,PP
-        double complex, dimension(:,:) :: A,B
-        double complex, dimension(1:NN*OO,1:MM*PP) :: tens_prod
-    end function
-end interface
+module ising_functs
+contains
 
-interface
-    function identity(NN)
-        implicit none
-        integer :: NN
-        double complex, dimension(1:NN,1:NN) :: identity
-    end function
-end interface
+function tens_prod(A,B,MM,NN,OO,PP)
+implicit none
+double complex, dimension(:,:) :: A,B
+double complex, dimension(1:MM*OO,1:NN*PP) :: tens_prod
+integer :: ii, jj, MM, NN, OO, PP
+
+    !tens_prod = 0
+    do jj = 1, NN
+        do ii = 1, MM
+            !if(A(ii,jj).eq.0) continue
+            tens_prod((ii-1)*OO+1:ii*OO,&
+            (jj-1)*PP+1:jj*PP) = A(ii,jj)*B
+        end do
+    end do
+end function
+
+function identity(NN)
+implicit none
+integer :: NN, ii
+double complex, dimension(1:NN,1:NN) :: identity
+
+    identity = 0
+    do ii = 1, NN
+        identity(ii,ii) = dcmplx(1,0)
+    end do
+
+end function
+
+function diag_val(OO,val)
+implicit none
+integer :: OO, ii
+double complex :: val, diag_val(1:OO,1:OO)
+
+    !diag_val = 0
+    !if (val.eq.dcmplx(0,0)) return
+    do ii = 1, OO
+        diag_val(ii,ii) = val
+    end do
+
+end function
+
+function tens_id(mat_a,MM,NN,id_nn)
+    ! Obtains the tensor product of a matrix A and the id_nn identity matrix
+    implicit none
+    double complex, dimension(:,:) :: mat_a
+    double complex, dimension(1:MM*id_nn,1:NN*id_nn) :: tens_id
+    integer :: ii, jj, MM, NN, id_nn
+    
+        !tens_id = 0
+        do jj = 1, NN
+            do ii = 1, MM
+                !if(mat_a(ii,jj).eq.0) continue
+                tens_id((ii-1)*id_nn+1:ii*id_nn,&
+                (jj-1)*id_nn+1:jj*id_nn) = diag_val(id_nn,mat_a(ii,jj))
+            end do
+        end do
+end function    
+
+end module
+
+program ising_model
+use ising_functs
+implicit none
 
 double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z
 double complex, dimension(1:2**2,1:2**2) :: sigma_int
 integer ii, jj, NN, allocate_status
-double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int
-real*8 :: lambda
-
+double complex, dimension(:,:), allocatable :: hamiltonian,mean_int,neigh_int, hamiltonian_1
+real*8 :: lambda, start, end
 
 sigma_x = dcmplx(reshape((/0,1,&
                            1,0/),&
@@ -53,6 +100,9 @@ allocate(neigh_int(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 
 
+call cpu_time(start)
+!
+do jj = 1, 100
 ! Transverse field interaction
 ! Setting everything for ii = 1
 mean_int = tens_prod(&
@@ -60,7 +110,8 @@ mean_int = tens_prod(&
     identity(2**(NN-1)),&
     2,2,2**(NN-1),2**(NN-1))
 
-hamiltonian = hamiltonian + mean_int
+hamiltonian = mean_int
+
 
 ! Setting for states inbetween
 do ii = 2, NN-1
@@ -84,6 +135,65 @@ mean_int = tens_prod(&
     2**(NN-1),2**(NN-1),2,2)
 
 hamiltonian = hamiltonian + mean_int
+
+end do
+call cpu_time(end)
+write(*,*) "First method timing: ", (end-start)
+
+
+! *** ALTERNATIVE ***
+ 
+allocate(hamiltonian_1(1:2**NN,1:2**NN),stat = allocate_status)
+if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+
+call cpu_time(start)
+do jj = 1, 100
+! Transverse field interaction
+! Setting everything for ii = 1
+mean_int = tens_id(&
+    sigma_z,&
+    2,2,2**(NN-1))
+
+hamiltonian_1 = mean_int
+
+
+! Setting for states inbetween
+do ii = 2, NN-1
+    mean_int(1:2**ii,1:2**ii) = tens_prod(&
+            identity(2**(ii-1)),&
+            sigma_z,&
+            2**(ii-1),2**(ii-1),2,2)
+    mean_int = tens_id(&
+    mean_int(1:2**ii,1:2**ii),&
+    2**ii,2**ii,2**(NN-ii))
+
+    hamiltonian_1 = hamiltonian_1 + mean_int
+
+end do
+
+! Setting everything for ii = NN
+mean_int = tens_prod(&
+    identity(2**(NN-1)),&
+    sigma_z,&
+    2**(NN-1),2**(NN-1),2,2)
+
+hamiltonian_1 = hamiltonian_1 + mean_int
+
+end do
+call cpu_time(end)
+write(*,*) "Second method timing: ", (end-start)
+
+
+do ii = 1, 2**NN
+    do jj = 1, 2**NN
+        if(&
+            (real(real(hamiltonian(ii,jj))).ne.real(real(hamiltonian_1(ii,jj))))&
+            .or.&
+            (real(aimag(hamiltonian(ii,jj))).ne.real(aimag(hamiltonian_1(ii,jj))))&
+            ) stop "They are different :("
+    end do
+end do
+
 hamiltonian = lambda*hamiltonian
 
 ! Nearest neighbours interaction
@@ -117,30 +227,3 @@ hamiltonian = hamiltonian + neigh_int
 
 
 end program ising_model
-
-
-function tens_prod(A,B,MM,NN,OO,PP)
-implicit none
-double complex, dimension(:,:) :: A,B
-double complex, dimension(1:MM*OO,1:NN*PP) :: tens_prod
-integer :: ii, jj, MM, NN, OO, PP
-
-    do ii = 1, MM
-        do jj = 1, NN
-            tens_prod((ii-1)*OO+1:ii*OO,&
-            (jj-1)*PP+1:jj*PP) = A(ii,jj)*B
-        end do
-    end do
-end function
-
-function identity(NN)
-implicit none
-integer :: NN, ii
-double complex, dimension(1:NN,1:NN) :: identity
-
-identity = 0*identity
-do ii = 1, NN
-    identity(ii,ii) = dcmplx(1,0)
-end do
-
-end function
