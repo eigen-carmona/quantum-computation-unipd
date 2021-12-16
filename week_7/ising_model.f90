@@ -137,10 +137,11 @@ sigma_int = tens_prod_2(sigma_x,sigma_x,2,2,2,2)
 write(*,*) "How many spins compose the system? Whats the field intensity?"
 read(*,*) NN, lambda
 
-if (NN.lt.3) stop "The system must have at least 3 spins"
 
-! BRUTE FORCE TENSOR PRODUCT
-! Can be simplified noting that most matrices in the tensor product are the identity
+
+if ((NN.lt.3).or.(NN.gt.30)) stop "The system must have at least 3 spins and no more than 15 spins"
+
+
 allocate(hamiltonian(1:2**NN,1:2**NN),stat = allocate_status)
 if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
 allocate(holder_int(1:2**NN,1:2**NN),stat = allocate_status)
@@ -204,5 +205,6 @@ holder_int = tens_prod_2(&
 
 hamiltonian = hamiltonian + holder_int
 
+write(*,*) count(hamiltonian/=0), "non-zero elements out of ", 2**NN*2**NN
 
 end program ising_model
