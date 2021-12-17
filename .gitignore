@@ -1,3 +1,9 @@
 *.dat
 *.zip
 *__pycache__
+*.gif
+*.mod
+*.jpg
+*checkpoints
+*.exe
+wee/
