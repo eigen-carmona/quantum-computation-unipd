@@ -157,6 +157,7 @@ integer ii, NN, allocate_status
 double complex, dimension(:,:), allocatable :: hamiltonian,holder_int
 real*8, dimension(:), allocatable :: energies
 real*8 :: lambda, start,end
+character*42 :: energy_file
 
 sigma_x = dcmplx(reshape((/0,1,&
                            1,0/),&
@@ -270,11 +271,16 @@ write(*,*) "Total time in seconds: ", end-start
 write(*,*) "****ENERGIES****"
 write(*,*) energies
 
-open(12,file = 'data/energies.dat')
+if (lambda.lt.1) then
+    write(energy_file,'(A,I0,A,f0.2,A)') "data/energies_",NN,"_spins_lambda_0",lambda,".dat"
+else
+    write(energy_file,'(A,I0,A,f0.2,A)') "data/energies_",NN,"_spins_lambda_",lambda,".dat"
+end if
+open(12,file = energy_file)
 do ii = 1,2**NN
     write(12,*) energies(ii)
 end do
 close(12)
-write(*,*) "Successfully wrote to energies.dat"
+write(*,*) "Successfully wrote to ", energy_file
 
 end program ising_model
