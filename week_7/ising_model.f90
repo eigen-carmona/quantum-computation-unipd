@@ -196,7 +196,7 @@ holder_int = tens_id_2(&
     sigma_z,&
     2,2,2**(NN-1))
 
-hamiltonian = holder_int
+hamiltonian = -holder_int
 
 
 ! Setting for states inbetween
@@ -209,7 +209,7 @@ do ii = 2, NN-1
     holder_int(1:2**ii,1:2**ii),&
     2**ii,2**ii,2**(NN-ii))
 
-    hamiltonian = hamiltonian + holder_int
+    hamiltonian = hamiltonian - holder_int
 
 end do
 
@@ -219,7 +219,9 @@ holder_int = tens_prod_2(&
     sigma_z,&
     2**(NN-1),2**(NN-1),2,2)
 
-hamiltonian = hamiltonian + holder_int
+hamiltonian = hamiltonian - holder_int
+
+hamiltonian = lambda*hamiltonian
 
 ! Nearest neighbours interaction
 ! Prepare interaction of the first two
@@ -227,7 +229,7 @@ holder_int = tens_id_2(&
                 sigma_int,&
                 2**2,2**2,2**(NN-2))
 
-hamiltonian = hamiltonian + holder_int
+hamiltonian = hamiltonian - holder_int
 
 do ii = 2, NN-2
     holder_int(1:2**(ii+1),1:2**(ii+1)) = tens_prod_2(&
@@ -237,7 +239,7 @@ do ii = 2, NN-2
     holder_int = tens_id_2(&
                     holder_int(1:2**(ii+1),1:2**(ii+1)),&
                     2**(ii+1),2**(ii+1),2**(NN-ii-1))
-    hamiltonian = hamiltonian + holder_int
+    hamiltonian = hamiltonian - holder_int
 end do
 
 ! Prepare interaction of the last two
@@ -246,7 +248,7 @@ holder_int = tens_prod_2(&
                 sigma_int,&
                 2**(NN-2),2**(NN-2),2**2,2**2)
 
-hamiltonian = hamiltonian + holder_int
+hamiltonian = hamiltonian - holder_int
 
 ! Representation efficiency check
 write(*,*) count(hamiltonian/=0), "non-zero elements out of ", 2**NN*2**NN
