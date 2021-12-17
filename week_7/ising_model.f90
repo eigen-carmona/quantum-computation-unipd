@@ -1,6 +1,43 @@
 module ising_functs
 contains
 
+subroutine diagonalization(org_hermitian, eigenvalues, NN)
+! Obtains the e-values of an hermitian matrix
+! Modifies org_hermitian
+implicit none
+integer :: NN, ok, allocate_status, lwork
+complex*16 :: org_hermitian(1:NN,1:NN)
+real*8 :: eigenvalues(1:NN)
+complex*16, allocatable :: work(:)
+real*8, allocatable :: rwork(:)
+
+    ! we don't want to saturate the memory
+    allocate(work(1:2*NN-1), stat = allocate_status)
+    if (allocate_status .ne. 0) stop "***Not enough memory to allocate diagonalization arrays***"
+
+    ! Obtain an optimal lwork
+    call zheev('N','U',NN,org_hermitian,NN,eigenvalues,work,-1,rwork,ok)
+
+    ! the first element of work is the optimal lwork
+    lwork = int(work(1))
+    if (lwork.le.0) stop "overflow in lwork"
+    ! Resize the work vector and validate memory
+    deallocate(work)
+    allocate(work(1:lwork), stat = allocate_status)
+    if (allocate_status .ne. 0) stop "***Not enough memory to allocate diagonalization arrays***"
+
+    allocate(rwork(1:3*NN-2), stat = allocate_status)
+    if (allocate_status .ne. 0) stop "***Not enough memory to allocate diagonalization arrays***"
+
+    call zheev('N','U',NN,org_hermitian,NN,eigenvalues,work,lwork,rwork,ok)
+
+    ! Releasing memory
+    deallocate(work,rwork)
+
+    if (ok.ne.0) stop "Unsuccessful eigenvalue calculation"
+
+end subroutine
+
 subroutine print_mat(mat_a)
 implicit none
 double complex, dimension(:,:) :: mat_a
@@ -118,7 +155,8 @@ double complex, dimension(1:2,1:2) :: sigma_x, sigma_y, sigma_z
 double complex, dimension(1:2**2,1:2**2) :: sigma_int
 integer ii, NN, allocate_status
 double complex, dimension(:,:), allocatable :: hamiltonian,holder_int
-real*8 :: lambda
+real*8, dimension(:), allocatable :: energies
+real*8 :: lambda, start,end
 
 sigma_x = dcmplx(reshape((/0,1,&
                            1,0/),&
@@ -134,11 +172,16 @@ sigma_z = dcmplx(reshape((/1,0,&
 
 sigma_int = tens_prod_2(sigma_x,sigma_x,2,2,2,2)
 
-write(*,*) "How many spins compose the system? Whats the field intensity?"
+write(*,*) "How many spins compose the system? What's the field intensity?"
 read(*,*) NN, lambda
 
-
-
+! TODO:
+! diagonalization
+! Lambda variation
+! Energy level plotting
+! NN timing and fitting
+! memory efficiency study (non-zero entries)
+call cpu_time(start)
 if ((NN.lt.3).or.(NN.gt.30)) stop "The system must have at least 3 spins and no more than 15 spins"
 
 
@@ -205,6 +248,31 @@ holder_int = tens_prod_2(&
 
 hamiltonian = hamiltonian + holder_int
 
+! Representation efficiency check
 write(*,*) count(hamiltonian/=0), "non-zero elements out of ", 2**NN*2**NN
+
+call cpu_time(end)
+write(*,*) "Hamiltonian building time in seconds: ", end-start
+
+! Once the hamiltonian has been computed, we can release the memory from holder_int
+deallocate(holder_int)
+! Now we may allocate the energy array
+allocate(energies(1:2**NN),stat = allocate_status)
+if (allocate_status .ne. 0) stop "***Not enough memory to allocate hamiltonian***"
+
+call diagonalization(hamiltonian,energies,2**NN)
+
+call cpu_time(end)
+write(*,*) "Total time in seconds: ", end-start
+
+write(*,*) "****ENERGIES****"
+write(*,*) energies
+
+open(12,file = 'data/energies.dat')
+do ii = 1,2**NN
+    write(12,*) energies(ii)
+end do
+close(12)
+write(*,*) "Successfully wrote to energies.dat"
 
 end program ising_model
