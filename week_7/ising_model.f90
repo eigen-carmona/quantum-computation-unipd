@@ -176,12 +176,6 @@ sigma_int = tens_prod_2(sigma_x,sigma_x,2,2,2,2)
 write(*,*) "How many spins compose the system? What's the field intensity?"
 read(*,*) NN, lambda
 
-! TODO:
-! diagonalization
-! Lambda variation
-! Energy level plotting
-! NN timing and fitting
-! memory efficiency study (non-zero entries)
 call cpu_time(start)
 if ((NN.lt.3).or.(NN.gt.30)) stop "The system must have at least 3 spins and no more than 15 spins"
 
@@ -209,9 +203,7 @@ do ii = 2, NN-1
     holder_int = tens_id_2(&
     holder_int(1:2**ii,1:2**ii),&
     2**ii,2**ii,2**(NN-ii))
-
     hamiltonian = hamiltonian - holder_int
-
 end do
 
 ! Setting everything for ii = NN
