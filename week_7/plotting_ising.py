@@ -9,11 +9,13 @@ def main():
     Js = np.arange(0,3.2,0.2)
     spins_n = [i for i in range(3,12)]
     k_levels = [min(2**n,5) for n in spins_n]
+    timing = []
     '''Executing fortran program'''
     # Plot the first k energy levels as a function of J
     for n,k in zip(spins_n,k_levels):
         # Empty array with energy levels for different Js
         energies = np.empty((len(Js),2**n))
+        start = time.time()
         for i,j in enumerate(Js):
             proc = subprocess.Popen(
                 "./ising_model.exe",
@@ -23,6 +25,8 @@ def main():
             out = proc.communicate(f'{n},{j}'.encode('UTF-8'))[0]
             # Load the resulting data
             energies[i,:] = np.loadtxt(f'data/energies_{n}_spins_lambda_{"%.2f"%j}.dat').T
+        end = time.time()
+        timing.append((end-start)/len(Js))
 
         fig, ax = plt.subplots()
         for i in range(k):
@@ -33,6 +37,13 @@ def main():
         ax.legend([r'$E_'+f'{i}'+r'$' for i in range(k)])
         fig.savefig(f'plots/energy_{n}_spins.jpg')
         plt.close()
+    _fig, _ax = plt.subplots()
+    _ax.plot(spins_n,np.log(timing))
+    _ax.set_title(r'Average performance')
+    _ax.set_ylabel(r'$\log$(Time)')
+    _ax.set_xlabel(r'spins')
+    _fig.savefig(f'plots/timing.jpg')
+
 
 if __name__ == '__main__':
     main()
