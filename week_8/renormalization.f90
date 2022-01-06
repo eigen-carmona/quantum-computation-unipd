@@ -399,14 +399,24 @@ end module
 program bullshit
 use renormalization
 implicit none
-integer :: NN = 4, MM = 8
-double complex :: hamiltonian_N(1:2**4,1:2**4), hamiltonian_M(1:8,1:8)
-real*8 :: lambda = 2.3!, eigenvalues(1:2**4)
+integer :: NN, MM, iterations
+double complex, allocatable :: hamiltonian_N(:,:), hamiltonian_M(:,:)
+real*8 :: lambda
+real*8, allocatable :: eigenvalues(:)
+
+write(*,*) "Enter NN, MM, lambda, iterations"
+read(*,*) NN, MM, lambda, iterations
+
+call zallocate_2(hamiltonian_N,2**NN,2**NN)
+call zallocate_2(hamiltonian_M,MM,MM)
+call rallocate_1(eigenvalues,MM)
 
 hamiltonian_N = ising_model_1D(NN,lambda)
 
-call real_space_rg(NN,2,hamiltonian_N,MM,100,hamiltonian_M)
+call real_space_rg(NN,2,hamiltonian_N,MM,iterations,hamiltonian_M)
 
-call print_mat(hamiltonian_M)
+call diagonalization(hamiltonian_M,eigenvalues,MM)
+
+write(*,*) eigenvalues
 
 end program
