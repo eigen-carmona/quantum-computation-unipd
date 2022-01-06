@@ -311,13 +311,15 @@ module renormalization
     end function
 
 
-    subroutine allocate_group(holder_ham,eigenvalues,projector_0,red_proj,curr_size,M_size)
+    subroutine allocate_group(holder_ham,H_int_A,H_int_B,eigenvalues,projector_0,red_proj,curr_size,M_size)
     implicit none
     integer :: curr_size, M_size
-    double complex, allocatable :: holder_ham(:,:), projector_0(:,:), red_proj(:,:)
+    double complex, allocatable :: holder_ham(:,:), projector_0(:,:), red_proj(:,:), H_int_A(:,:), H_int_B(:,:)
     real*8, allocatable :: eigenvalues(:)
 
         call zallocate_2(holder_ham,curr_size,curr_size)
+        call zallocate_2(H_int_A,curr_size,curr_size)
+        call zallocate_2(H_int_B,curr_size,curr_size)
         call rallocate_1(eigenvalues,curr_size)
         call zallocate_2(projector_0,curr_size,curr_size)
         call zallocate_2(red_proj,curr_size,M_size)
@@ -329,6 +331,8 @@ module renormalization
         N_size,&! Number of particles described by the initial hamiltonian
         d_states,&! Number of states for the individual systems
         hamiltonian_N,&! The analytical hamiltonian for the N particle system
+        boundary_A,&! The leftmost boundary interaction term
+        boundary_B,&! The rightmost boundary interaction term
         M_size,&! dimension of the truncated hamiltonian
         iterations,& ! using instead of target size
         !target_size,&! number of particles of the final system. Must be N_size*2**w_it for some non negative integer w_it
@@ -338,33 +342,52 @@ module renormalization
     integer :: N_size, M_size, d_states, iterations, curr_size, ii, jj
     double complex :: output_hamiltonian(1:M_size,1:M_size), H_int(1:M_size**2,1:M_size**2)
     double complex :: hamiltonian_N(1:d_states**N_size,1:d_states**N_size), hamiltonian_M(1:M_size**2,1:M_size**2)
+    double complex :: boundary_A(1:d_states,1:d_states), boundary_B(1:d_states,1:d_states)
+    double complex :: H_int_A(1:M_size,1:M_size), H_int_B(1:M_size,1:M_size)
     double complex, allocatable :: holder_ham(:,:), projector_0(:,:), red_proj(:,:)
+    double complex, allocatable :: H_A(:,:), H_B(:,:)
     real*8, allocatable :: eigenvalues(:)
 
         curr_size = d_states**N_size
         !output_hamiltonian = 0
+        ! The renormalization group dimension must be lower or equal to the initial configuration dimension.
+        if (curr_size.lt.M_size) stop "Dimension of hilbert space for initial configuration too small."
 
-        call allocate_group(holder_ham,eigenvalues,projector_0,red_proj,curr_size,M_size)
+        call allocate_group(holder_ham,H_A,H_B,eigenvalues,projector_0,red_proj,curr_size,M_size)
         holder_ham = hamiltonian_N
 
         ! Diagonalize the initial hamiltonian
         call diagonalization(holder_ham, eigenvalues, curr_size)
 
         ! Project on the basis for the first M eigenstates
-        projector_0 = 0
-        do jj = 1, M_size
-            projector_0 = projector_0 + outer(holder_ham(:,jj),holder_ham(:,jj),curr_size,curr_size)
-        end do
+        projector_0 = holder_ham
+        !projector_0 = 0
+        !do jj = 1, M_size
+        !    projector_0 = projector_0 + outer(holder_ham(:,jj),holder_ham(:,jj),curr_size,curr_size)
+        !end do
         red_proj = projector_0(1:curr_size,1:M_size)
+        write(*,*) eigenvalues(1:M_size)
         output_hamiltonian = matmul(mat_adj(red_proj),matmul(hamiltonian_N,red_proj))
+        H_A = tens_prod_2(&
+                identity(d_states**(N_size-1)),&
+                boundary_A,&
+                d_states**(N_size-1),d_states**(N_size-1),d_states,d_states)
+        H_B = tens_id_2(&
+                boundary_B,&
+                d_states,d_states,d_states**(N_size-1))
+        H_int_A = matmul(mat_adj(red_proj),matmul(H_A,red_proj))
+        H_int_B = matmul(mat_adj(red_proj),matmul(H_B,red_proj))
 
         ! Build interaction hamiltonian
-        H_int = tens_prod_2(output_hamiltonian,output_hamiltonian,M_size,M_size,M_size,M_size)
+        H_int = tens_prod_2(&
+            H_int_A,&
+            H_int_B,&
+            M_size,M_size,M_size,M_size)
 
         ! Resize the dummy variables
         curr_size = M_size*M_size
-        deallocate(holder_ham,eigenvalues,projector_0,red_proj)
-        call allocate_group(holder_ham,eigenvalues,projector_0,red_proj,curr_size,M_size)
+        deallocate(holder_ham,H_A,H_B,eigenvalues,projector_0,red_proj)
+        call allocate_group(holder_ham,H_A,H_B,eigenvalues,projector_0,red_proj,curr_size,M_size)
 
         ! repeat until the desired number of particles is reached
         do ii = 1, iterations
@@ -379,12 +402,28 @@ module renormalization
             call diagonalization(holder_ham, eigenvalues, curr_size)
 
             ! project only the first m e-values
-            projector_0 = 0
-            do jj = 1, M_size
-                projector_0 = projector_0 + outer(holder_ham(:,jj),holder_ham(:,jj),curr_size,curr_size)
-            end do
+            projector_0 = holder_ham
+            !projector_0 = 0
+            !do jj = 1, M_size
+            !    projector_0 = projector_0 + outer(holder_ham(:,jj),holder_ham(:,jj),curr_size,curr_size)
+            !end do
             red_proj = projector_0(1:curr_size,1:M_size)
             output_hamiltonian = matmul(mat_adj(red_proj),matmul(hamiltonian_M,red_proj))
+            ! Build interaction hamiltonian
+            ! Fixed interaction terms
+            H_A = tens_prod_2(&
+                    identity(M_size),&
+                    H_int_A,&
+                    M_size,M_size,M_size,M_size)
+            H_B = tens_id_2(&
+                    H_int_B,&
+                    M_size,M_size,M_size)
+            H_int_A = matmul(mat_adj(red_proj),matmul(H_A,red_proj))
+            H_int_B = matmul(mat_adj(red_proj),matmul(H_B,red_proj))
+            H_int = tens_prod_2(&
+                H_int_A,&
+                H_int_B,&
+                M_size,M_size,M_size,M_size)
 
         end do
 
@@ -401,8 +440,14 @@ use renormalization
 implicit none
 integer :: NN, MM, iterations
 double complex, allocatable :: hamiltonian_N(:,:), hamiltonian_M(:,:)
+double complex :: sigma_x(1:2,1:2)
 real*8 :: lambda
 real*8, allocatable :: eigenvalues(:)
+
+sigma_x = dcmplx(reshape((/0,1,&
+                           1,0/),&
+                    (/2,2/)),0)
+
 
 write(*,*) "Enter NN, MM, lambda, iterations"
 read(*,*) NN, MM, lambda, iterations
@@ -413,7 +458,7 @@ call rallocate_1(eigenvalues,MM)
 
 hamiltonian_N = ising_model_1D(NN,lambda)
 
-call real_space_rg(NN,2,hamiltonian_N,MM,iterations,hamiltonian_M)
+call real_space_rg(NN,2,hamiltonian_N,sqrt(lambda)*sigma_x,-sqrt(lambda)*sigma_x,MM,iterations,hamiltonian_M)
 
 call diagonalization(hamiltonian_M,eigenvalues,MM)
 
