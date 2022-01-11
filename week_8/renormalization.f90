@@ -237,28 +237,28 @@ module renormalization
         sigma_x = dcmplx(reshape((/0,1,&
                                    1,0/),&
                             (/2,2/)),0)
-        
+
         sigma_y = dcmplx(0,reshape((/0,-1,&
                                      1,0/),&
                             (/2,2/)))
-        
+
         sigma_z = dcmplx(reshape((/1,0,&
                                    0,-1/),&
                             (/2,2/)),0)
-        
+
         sigma_int = tens_prod_2(sigma_x,sigma_x,2,2,2,2)
         call zallocate_2(hamiltonian,2**NN,2**NN)
         call zallocate_2(holder_int,2**NN,2**NN)
-        
+
         ! Transverse field interaction
         ! Setting everything for ii = 1
         holder_int = tens_id_2(&
             sigma_z,&
             2,2,2**(NN-1))
         
-        hamiltonian = holder_int
-        
-        
+        hamiltonian = -holder_int
+
+
         ! Setting for states inbetween
         do ii = 2, NN-1
             holder_int(1:2**ii,1:2**ii) = tens_prod_2(&
@@ -268,19 +268,19 @@ module renormalization
             holder_int = tens_id_2(&
             holder_int(1:2**ii,1:2**ii),&
             2**ii,2**ii,2**(NN-ii))
-            hamiltonian = hamiltonian + holder_int
+            hamiltonian = hamiltonian - holder_int
         end do
-        
+
         ! Setting everything for ii = NN
         holder_int = tens_prod_2(&
             identity(2**(NN-1)),&
             sigma_z,&
             2**(NN-1),2**(NN-1),2,2)
         
-        hamiltonian = hamiltonian + holder_int
-        
+        hamiltonian = hamiltonian - holder_int
+
         hamiltonian = lambda*hamiltonian
-        
+
         ! Nearest neighbours interaction
         ! Prepare interaction of the first two
         holder_int = tens_id_2(&
@@ -288,7 +288,7 @@ module renormalization
                         2**2,2**2,2**(NN-2))
         
         hamiltonian = hamiltonian - holder_int
-        
+
         do ii = 2, NN-2
             holder_int(1:2**(ii+1),1:2**(ii+1)) = tens_prod_2(&
                             identity(2**(ii-1)),&
@@ -299,15 +299,15 @@ module renormalization
                             2**(ii+1),2**(ii+1),2**(NN-ii-1))
             hamiltonian = hamiltonian - holder_int
         end do
-        
+
         ! Prepare interaction of the last two
         holder_int = tens_prod_2(&
                         identity(2**(NN-2)),&
                         sigma_int,&
                         2**(NN-2),2**(NN-2),2**2,2**2)
-        
+
         hamiltonian = hamiltonian - holder_int
-        
+
     end function
 
 
@@ -336,7 +336,8 @@ module renormalization
         M_size,&! dimension of the truncated hamiltonian
         iterations,& ! using instead of target size
         !target_size,&! number of particles of the final system. Must be N_size*2**w_it for some non negative integer w_it
-        output_hamiltonian&
+        output_hamiltonian,&
+        convergence_test&
         )
     implicit none
     integer :: N_size, M_size, d_states, iterations, curr_size, ii, jj
@@ -347,8 +348,12 @@ module renormalization
     double complex, allocatable :: holder_ham(:,:), projector_0(:,:), red_proj(:,:)
     double complex, allocatable :: H_A(:,:), H_B(:,:)
     real*8, allocatable :: eigenvalues(:)
+    real*8 :: tol_e = 1d-10, Energy_ii
+    integer*8 :: sim_size
+    logical :: convergence_test
 
         curr_size = d_states**N_size
+        sim_size = int(N_size,8)
         !output_hamiltonian = 0
         ! The renormalization group dimension must be lower or equal to the initial configuration dimension.
         if (curr_size.lt.M_size) stop "Dimension of hilbert space for initial configuration too small."
@@ -366,7 +371,6 @@ module renormalization
         !    projector_0 = projector_0 + outer(holder_ham(:,jj),holder_ham(:,jj),curr_size,curr_size)
         !end do
         red_proj = projector_0(1:curr_size,1:M_size)
-        write(*,*) eigenvalues(1:M_size)
         output_hamiltonian = matmul(mat_adj(red_proj),matmul(hamiltonian_N,red_proj))
         H_A = tens_prod_2(&
                 identity(d_states**(N_size-1)),&
@@ -397,6 +401,9 @@ module renormalization
             + tens_prod_2(identity(M_size),output_hamiltonian,M_size,M_size,M_size,M_size)&
             + H_int! Projected interaction term
 
+            ! store the energy from the past iteration
+            Energy_ii = eigenvalues(1)/sim_size
+
             ! diagonalize N-particle system hamiltonian
             holder_ham = hamiltonian_M
             call diagonalization(holder_ham, eigenvalues, curr_size)
@@ -409,6 +416,15 @@ module renormalization
             !end do
             red_proj = projector_0(1:curr_size,1:M_size)
             output_hamiltonian = matmul(mat_adj(red_proj),matmul(hamiltonian_M,red_proj))
+
+            sim_size = sim_size*2
+            ! convergence test
+            if (convergence_test.and.abs(Energy_ii-eigenvalues(1)/sim_size).lt.tol_e) then
+                write(*,*) "Converged at", ii
+                iterations = ii
+                exit
+            end if
+
             ! Build interaction hamiltonian
             ! Fixed interaction terms
             H_A = tens_prod_2(&
@@ -435,14 +451,17 @@ module renormalization
 
 end module
 
-program bullshit
+program real_group_ising
 use renormalization
 implicit none
-integer :: NN, MM, iterations
+integer :: NN, MM, iterations, ii
 double complex, allocatable :: hamiltonian_N(:,:), hamiltonian_M(:,:)
 double complex :: sigma_x(1:2,1:2)
 real*8 :: lambda
 real*8, allocatable :: eigenvalues(:)
+character*64 :: energy_file
+logical :: convergence_test = .false.
+integer*8 :: sim_size
 
 sigma_x = dcmplx(reshape((/0,1,&
                            1,0/),&
@@ -458,10 +477,31 @@ call rallocate_1(eigenvalues,MM)
 
 hamiltonian_N = ising_model_1D(NN,lambda)
 
-call real_space_rg(NN,2,hamiltonian_N,sqrt(lambda)*sigma_x,-sqrt(lambda)*sigma_x,MM,iterations,hamiltonian_M)
+if (iterations.eq.0) then
+    iterations = 100! Large number of iterations in order to test for convergence
+    convergence_test = .true.
+end if
+
+call real_space_rg(NN,2,hamiltonian_N,sigma_x,-sigma_x,MM,iterations,hamiltonian_M,convergence_test)
 
 call diagonalization(hamiltonian_M,eigenvalues,MM)
 
-write(*,*) eigenvalues
+sim_size = int(NN,8)*2**int(iterations,8)
+
+write(*,*) eigenvalues/sim_size
+
+if (lambda.lt.1) then
+    write(energy_file,'(A,I0,A,I0,A,f0.2,A)') "data/",MM,"_energies_",sim_size,"_spins_lambda_0",lambda,".dat"
+else
+    write(energy_file,'(A,I0,A,I0,A,f0.2,A)') "data/",MM,"_energies_",sim_size,"_spins_lambda_",lambda,".dat"
+end if
+open(12,file = energy_file)
+do ii = 1,MM
+    write(12,*) eigenvalues(ii)
+end do
+close(12)
+write(*,*) "Successfully wrote to ", energy_file
+
+write(*,*) iterations
 
 end program
